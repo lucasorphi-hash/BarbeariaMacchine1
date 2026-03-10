@@ -1,750 +1,445 @@
 import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { 
-  Calendar as CalendarIcon, 
+  Calendar, 
   Clock, 
   User, 
   Phone, 
+  CheckCircle2, 
   Scissors, 
   ChevronRight, 
-  CheckCircle2,
-  MapPin,
-  Instagram,
-  Facebook,
+  ChevronLeft,
+  AlertCircle,
   Menu,
   X,
-  Trash2,
-  RefreshCw
+  Instagram,
+  Facebook,
+  MapPin,
+  ExternalLink
 } from 'lucide-react';
 
-// --- Types ---
-
-interface Service {
-  id: string;
-  name: string;
-  price: number;
-  duration: string;
-}
-
+// Tipagem para os agendamentos
 interface Appointment {
+  id?: string;
   customer_name: string;
   customer_phone: string;
   service: string;
   date: string;
   time: string;
+  status: string;
+  created_at?: string;
 }
 
-// --- Constants ---
-
-const SERVICES: Service[] = [
-  { id: '1', name: 'Corte de Cabelo', price: 30, duration: '30 min' },
-  { id: '2', name: 'Corte + Sobrancelha', price: 35, duration: '30 min' },
-  { id: '3', name: 'Barba Completa', price: 30, duration: '30 min' },
-  { id: '4', name: 'Barba + Sobrancelha', price: 35, duration: '30 min' },
-  { id: '5', name: 'Combo (Corte + Barba + Sobrancelha)', price: 60, duration: '1h' },
+const services = [
+  { id: 'corte', name: 'Corte de Cabelo', price: 'R$ 40,00', duration: '30 min' },
+  { id: 'barba', name: 'Barba Completa', price: 'R$ 30,00', duration: '20 min' },
+  { id: 'combo', name: 'Combo (Corte + Barba)', price: 'R$ 65,00', duration: '50 min' },
+  { id: 'sobrancelha', name: 'Sobrancelha', price: 'R$ 15,00', duration: '10 min' },
 ];
 
-const TIMES = [
-  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30', '12:00', '13:00', '13:30', '14:00', '14:30', '15:00', '15:30', '16:00', '16:30', '17:00', '17:30', '18:00', '18:30', '19:00'
+const timeSlots = [
+  '09:00', '09:30', '10:00', '10:30', '11:00', '11:30',
+  '13:00', '13:30', '14:00', '14:30', '15:00', '15:30',
+  '16:00', '16:30', '17:00', '17:30', '18:00', '18:30'
 ];
 
-// --- Components ---
-
-const LogoImage = () => {
-  const [error, setError] = useState(false);
-
-  if (error) {
-    return (
-      <div className="flex flex-col items-center justify-center p-4 text-center">
-        <div className="text-gold font-display text-4xl leading-none drop-shadow-lg">MACCHINE</div>
-        <div className="text-paper/60 font-sans text-xs tracking-[0.3em] mt-1 uppercase">Barbearia</div>
-        <div className="mt-6 opacity-20">
-          <Scissors size={64} className="text-gold" />
-        </div>
-        <div className="absolute top-2 right-2 w-4 h-4 border-t border-r border-gold/30" />
-        <div className="absolute bottom-2 left-2 w-4 h-4 border-b border-l border-gold/30" />
-      </div>
-    );
-  }
-
-  return (
-    <img 
-      src="https://scontent-gru2-2.xx.fbcdn.net/v/t39.30808-6/488047767_589609614084754_6202513427545090809_n.jpg?_nc_cat=102&ccb=1-7&_nc_sid=1d70fc&_nc_eui2=AeGxOpw2rdk6F1D9Q-i8LR26VwXqh4hTN_9XBeqHiFM3_6PoME-4UFzoCs1WXS0h9msBMSSunwPndXzl6_-FzmXa&_nc_ohc=goTd9jEdH_sQ7kNvwGpbbPV&_nc_oc=AdkGVLW4GMPOj4PyJiCYoG2F3MSXejbcSZXOn-a1GxeLwIQ-_OWJuShV_JP9ciENgsE&_nc_zt=23&_nc_ht=scontent-gru2-2.xx&_nc_gid=stz04R5tCHw-bTn1erFWrQ&_nc_ss=8&oh=00_Aftdc92P5B-0vw36wB2WQ8OUbWeRSFGYZjD4khbX4LIiOw&oe=69AA26D5" 
-      alt="Barbearia Macchine Logo"
-      className="w-full h-full object-contain rounded-xl drop-shadow-[0_0_15px_rgba(212,175,55,0.3)]"
-      onError={() => setError(true)}
-      referrerPolicy="no-referrer"
-    />
-  );
-};
-
-export default function App() {
+function App() {
   const [step, setStep] = useState(1);
-  const [selectedService, setSelectedService] = useState<Service | null>(null);
-  const [selectedDate, setSelectedDate] = useState<string>('');
-  const [selectedTime, setSelectedTime] = useState<string>('');
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
+  const [selectedService, setSelectedService] = useState('');
+  const [selectedDate, setSelectedDate] = useState('');
+  const [selectedTime, setSelectedTime] = useState('');
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSuccess, setIsSuccess] = useState(false);
+  const [bookedAppointments, setBookedAppointments] = useState<Appointment[]>([]);
+  const [occupiedTimes, setOccupiedTimes] = useState<string[]>([]);
   const [error, setError] = useState('');
 
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [adminPassword, setAdminPassword] = useState('');
-  const [appointments, setAppointments] = useState<any[]>([]);
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
-  const [bookedTimes, setBookedTimes] = useState<string[]>([]);
-  const [whatsappUrl, setWhatsappUrl] = useState('');
-  const [lastUpdated, setLastUpdated] = useState<string>('');
-  const [filterToday, setFilterToday] = useState(false);
-  const [dbDiagnostic, setDbDiagnostic] = useState<any>(null);
-
+  // Buscar agendamentos existentes
   const fetchAppointments = async () => {
-    setIsSubmitting(true);
     try {
-      // Add timestamp to prevent caching
-      const response = await fetch(`/api/appointments?t=${Date.now()}`);
+      const response = await fetch('/api/appointments');
       if (response.ok) {
         const data = await response.json();
-        console.log('Fetched appointments:', data);
-        setAppointments(data);
-        setLastUpdated(new Date().toLocaleTimeString());
-        setError('');
-      } else {
-        const errorData = await response.json();
-        setError(errorData.error || 'Erro ao carregar agendamentos');
+        setBookedAppointments(data);
       }
     } catch (err) {
-      console.error('Error fetching appointments:', err);
-      setError('Erro de conexão com o servidor');
-    } finally {
-      setIsSubmitting(false);
+      console.error('Erro ao buscar agendamentos:', err);
     }
   };
 
   useEffect(() => {
     fetchAppointments();
-    
-    // Refresh when window gets focus to avoid stale data
-    const handleFocus = () => fetchAppointments();
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
   }, []);
 
+  // Filtrar horários ocupados quando a data mudar
   useEffect(() => {
-    if (selectedDate) {
-      fetchAppointments();
+    if (selectedDate && bookedAppointments.length > 0) {
+      const occupied = bookedAppointments
+        .filter(app => app.date === selectedDate)
+        .map(app => app.time);
+      setOccupiedTimes(occupied);
+    } else if (!selectedDate) {
+      setOccupiedTimes([]);
     }
-  }, [selectedDate]);
+  }, [selectedDate, bookedAppointments]);
 
-  useEffect(() => {
-    if (selectedDate) {
-      const booked = appointments
-        .filter((apt: any) => apt.date === selectedDate)
-        .map((apt: any) => apt.time);
-      setBookedTimes(booked);
-    } else {
-      setBookedTimes([]);
-    }
-  }, [selectedDate, appointments]);
+  const handleServiceSelect = (id: string) => {
+    setSelectedService(id);
+    setStep(2);
+  };
 
-  useEffect(() => {
-    if (isAdmin && isAdminAuthenticated) {
-      fetchAppointments();
-    }
-  }, [isAdmin, isAdminAuthenticated]);
-
-  const handleCancelAppointment = async (id: number) => {
-    if (!window.confirm('Tem certeza que deseja cancelar este agendamento?')) return;
-
-    try {
-      const response = await fetch(`/api/appointments/${id}`, {
-        method: 'DELETE',
-      });
-      if (response.ok) {
-        fetchAppointments();
-      }
-    } catch (err) {
-      console.error('Error canceling appointment:', err);
+  const handleDateSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const date = e.target.value;
+    setSelectedDate(date);
+    // Avança para o passo 3 (horários) assim que a data é selecionada
+    if (date) {
+      setStep(3);
     }
   };
 
-  const handleAdminLogin = () => {
-    // Simple password check for the owner
-    if (adminPassword === '47381491') {
-      setIsAdminAuthenticated(true);
-      fetchAppointments();
-    } else {
-      setError('Senha incorreta');
-    }
+  const handleTimeSelect = (time: string) => {
+    setSelectedTime(time);
+    setStep(4);
   };
 
-  const resetForm = () => {
-    setStep(1);
-    setSelectedService(null);
-    setSelectedDate('');
-    setSelectedTime('');
-    setCustomerName('');
-    setCustomerPhone('');
-    setIsSuccess(false);
-    setError('');
-    setIsAdmin(false);
-    setIsAdminAuthenticated(false);
-  };
-
-  const runDiagnostic = async () => {
-    try {
-      const response = await fetch(`/api/debug?t=${Date.now()}`);
-      const data = await response.json();
-      setDbDiagnostic(data);
-    } catch (err) {
-      setDbDiagnostic({ error: 'Falha ao conectar ao servidor de diagnóstico' });
-    }
-  };
-
-  const handleBooking = async () => {
-    if (!selectedService || !selectedDate || !selectedTime || !customerName || !customerPhone) {
-      setError('Por favor, preencha todos os campos.');
-      return;
-    }
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
     setIsSubmitting(true);
     setError('');
 
+    const serviceName = services.find(s => s.id === selectedService)?.name || '';
+    
+    const appointmentData: Appointment = {
+      customer_name: name,
+      customer_phone: phone,
+      service: serviceName,
+      date: selectedDate,
+      time: selectedTime,
+      status: 'pendente'
+    };
+
     try {
-      // Final availability check before proceeding
-      const checkResponse = await fetch(`/api/appointments?t=${Date.now()}`);
-      if (checkResponse.ok) {
-        const latestAppointments = await checkResponse.json();
-        const isCombo = selectedService.duration === '1h';
-        const timesToCheck = [selectedTime];
-        if (isCombo) {
-          const index = TIMES.indexOf(selectedTime);
-          const nextTime = TIMES[index + 1];
-          if (nextTime) timesToCheck.push(nextTime);
-        }
-
-        const alreadyBooked = latestAppointments.some((apt: any) => 
-          apt.date === selectedDate && timesToCheck.includes(apt.time)
-        );
-
-        if (alreadyBooked) {
-          setError('Desculpe, este horário acabou de ser reservado por outra pessoa. Por favor, escolha outro.');
-          setAppointments(latestAppointments);
-          setStep(3);
-          setIsSubmitting(false);
-          return;
-        }
-      }
-
-      const isCombo = selectedService.duration === '1h';
-      let extraTime = '';
-      if (isCombo) {
-        const index = TIMES.indexOf(selectedTime);
-        extraTime = TIMES[index + 1] || '';
-      }
-
       const response = await fetch('/api/appointments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          customer_name: customerName,
-          customer_phone: customerPhone,
-          service: selectedService.name,
-          date: selectedDate,
-          time: selectedTime,
-          extra_time: extraTime
-        }),
+        body: JSON.stringify(appointmentData),
       });
 
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.error || 'Erro ao agendar');
+      if (response.ok) {
+        setStep(5);
+        // Enviar para o WhatsApp
+        const message = `Olá! Gostaria de confirmar meu agendamento na Barbearia Macchine:%0A%0A*Serviço:* ${serviceName}%0A*Data:* ${new Date(selectedDate).toLocaleDateString('pt-BR')}%0A*Horário:* ${selectedTime}%0A*Nome:* ${name}`;
+        window.open(`https://wa.me/5515997455431?text=${message}`, '_blank' );
+      } else {
+        const errorData = await response.json();
+        setError(errorData.error || 'Erro ao realizar agendamento. Tente outro horário.');
       }
-
-      setIsSuccess(true);
-      setStep(5);
-      fetchAppointments(); // Update list in background
-
-      // Construct WhatsApp message and redirect
-      const formattedDate = selectedDate.split('-').reverse().join('/');
-      const timeText = isCombo ? `${selectedTime} (Duração: 1h)` : selectedTime;
-      
-      const message = encodeURIComponent(
-        `Olá! Acabei de agendar um horário na Barbearia Macchine.\n\n` +
-        `*Cliente:* ${customerName}\n` +
-        `*Serviço:* ${selectedService.name}\n` +
-        `*Data:* ${formattedDate}\n` +
-        `*Horário:* ${timeText}\n\n` +
-        `Confirmado pelo sistema! ✅`
-      );
-      
-      const whatsappUrl = `https://wa.me/5515997278405?text=${message}`;
-      setWhatsappUrl(whatsappUrl);
-      
-      // Small delay to let the success screen show before redirecting
-      setTimeout(() => {
-        window.open(whatsappUrl, '_blank');
-      }, 1500);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError('Erro de conexão. Tente novamente mais tarde.');
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-dark text-paper selection:bg-gold selection:text-dark">
-      {/* Header / Logo Section */}
-      <header className="relative py-12 px-4 flex flex-col items-center border-b border-white/5 bg-black overflow-hidden">
-        {/* Header Background Image */}
-        <img 
-          src="https://scontent-gru1-1.xx.fbcdn.net/v/t39.30808-6/645192470_845360568509656_6633865467934044282_n.png?_nc_cat=104&ccb=1-7&_nc_sid=2a1932&_nc_eui2=AeEmG3fLdkXemIrYyqWBTIpXIRUp3s5YGQEhFSnezlgZAfI9an0oojEWVPyT1mv5vQTcXDrrUERSzjuVjDVp6Hyw&_nc_ohc=M8cF2LN_qcsQ7kNvwHppeMn&_nc_oc=Adnym_5tmL2sW2Qr4xe5GDaFA6Jkazdm2ocyrnUswbRJrSaFFN1v5yMp3i_RkFrAztI&_nc_zt=23&_nc_ht=scontent-gru1-1.xx&_nc_gid=f1xhiskyEy4e_hytmdqaNA&_nc_ss=8&oh=00_AfvFtshGrBl6tr7Fq8vMXnefHcQ-z760lIddVu9FCoCDNw&oe=69AA3CC4"
-          alt="Header Background"
-          className="absolute inset-0 w-full h-full object-cover opacity-40 scale-110 blur-[2px]"
-          referrerPolicy="no-referrer"
-        />
-        {/* Gradient Overlay for the header */}
-        <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/20 to-black" />
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 font-sans">
+      {/* Header */}
+      <header className="bg-neutral-900/80 backdrop-blur-md border-b border-neutral-800 sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <img src="/logo-preview.jpg" alt="Logo" className="w-10 h-10 rounded-full object-cover border border-amber-500" />
+            <span className="text-xl font-bold tracking-tighter text-amber-500">MACCHINE</span>
+          </div>
+          
+          <nav className="hidden md:flex items-center gap-8">
+            <a href="#inicio" className="text-sm font-medium hover:text-amber-500 transition-colors">Início</a>
+            <a href="#servicos" className="text-sm font-medium hover:text-amber-500 transition-colors">Serviços</a>
+            <a href="#agendar" className="bg-amber-600 hover:bg-amber-700 text-white px-5 py-2 rounded-full text-sm font-bold transition-all transform hover:scale-105">Agendar Agora</a>
+          </nav>
 
-        <div className="relative z-10 flex flex-col items-center">
-          <motion.div 
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="relative w-64 h-64 mb-4"
-          >
-            <div className="w-full h-full rounded-2xl border-2 border-gold flex items-center justify-center p-2 bg-black/40 backdrop-blur-md overflow-hidden shadow-2xl shadow-gold/20 relative">
-              <div className="relative z-10 w-full h-full flex items-center justify-center">
-                <LogoImage />
-              </div>
-            </div>
-          </motion.div>
-          <motion.h1 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="text-xl font-display text-gold tracking-widest uppercase drop-shadow-md"
-          >
-            Agendamento Online
-          </motion.h1>
+          <button className="md:hidden text-neutral-400" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-6 py-12">
-        <AnimatePresence mode="wait">
-          {/* Step 1: Service Selection */}
-          {step === 1 && (
-            <motion.div
-              key="step1"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <h2 className="text-2xl font-display mb-8 border-l-4 border-gold pl-4">Escolha o Serviço</h2>
-              <div className="grid gap-4">
-                {SERVICES.map((service) => (
-                  <button
-                    key={service.id}
-                    onClick={() => {
-                      setSelectedService(service);
-                      setStep(2);
-                    }}
-                    className="group relative flex items-center justify-between p-5 glass rounded-xl hover:border-gold/50 transition-all text-left"
-                  >
-                    <div>
-                      <h3 className="font-semibold text-lg group-hover:text-gold transition-colors">{service.name}</h3>
-                      <p className="text-paper/50 text-sm font-mono">{service.duration}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-gold font-bold text-xl">R$ {service.price}</span>
-                      <ChevronRight className="inline-block ml-2 text-paper/20 group-hover:text-gold" size={20} />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
+      {/* Hero Section */}
+      <section id="inicio" className="relative py-20 overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-amber-900/20 via-transparent to-transparent opacity-50"></div>
+        <div className="container mx-auto px-4 text-center relative z-10">
+          <div className="flex justify-center mb-6">
+            <img src="/logo-preview.jpg" alt="Logo" className="w-32 h-32 rounded-full object-cover border-4 border-amber-500 shadow-2xl shadow-amber-500/20" />
+          </div>
+          <h1 className="text-5xl md:text-7xl font-black mb-4 tracking-tighter">BARBEARIA <span className="text-amber-500">MACCHINE</span></h1>
+          <p className="text-neutral-400 text-lg md:text-xl max-w-2xl mx-auto mb-10">
+            Estilo, tradição e a melhor experiência para o seu visual em Boituva. 
+            Agende seu horário com os melhores profissionais da região.
+          </p>
+          <div className="flex flex-col md:flex-row gap-4 justify-center">
+            <a href="#agendar" className="bg-amber-600 hover:bg-amber-700 text-white px-8 py-4 rounded-xl text-lg font-bold transition-all shadow-lg shadow-amber-900/20 flex items-center justify-center gap-2">
+              <Calendar size={20} /> Agendar Agora
+            </a>
+            <a href="https://instagram.com" target="_blank" className="bg-neutral-800 hover:bg-neutral-700 text-white px-8 py-4 rounded-xl text-lg font-bold transition-all flex items-center justify-center gap-2">
+              <Instagram size={20} /> Ver Instagram
+            </a>
+          </div>
+        </div>
+      </section>
 
-          {/* Step 2: Date Selection */}
-          {step === 2 && (
-            <motion.div
-              key="step2"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <button onClick={() => { setStep(1); setError(''); }} className="text-gold text-sm flex items-center mb-4">
-                ← Voltar aos serviços
-              </button>
-              <h2 className="text-2xl font-display mb-8 border-l-4 border-gold pl-4">Selecione a Data</h2>
-              <p className="text-xs text-paper/40 mb-2 uppercase tracking-widest">Atendimento de Terça a Sábado</p>
-              <input 
-                type="date" 
-                min={new Date().toISOString().split('T')[0]}
-                className="w-full p-4 glass rounded-xl text-paper focus:outline-none focus:ring-2 focus:ring-gold/50"
-                onChange={(e) => {
-                  const date = new Date(e.target.value + 'T00:00:00');
-                  const day = date.getDay();
-                  // 0 = Sunday, 1 = Monday
-                  if (day === 0 || day === 1) {
-                    setError('A barbearia não abre aos domingos e segundas. Por favor, escolha de terça a sábado.');
-                    return;
-                  }
-                  setError('');
-                  setSelectedDate(e.target.value);
-                  setStep(3);
-                }}
-              />
-              {error && step === 2 && <p className="text-red-400 text-sm mt-2">{error}</p>}
-            </motion.div>
-          )}
-
-          {/* Step 3: Time Selection */}
-          {step === 3 && (
-            <motion.div
-              key="step3"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <button onClick={() => { setStep(2); setError(''); }} className="text-gold text-sm flex items-center mb-4">
-                ← Voltar à data
-              </button>
-              <h2 className="text-2xl font-display mb-8 border-l-4 border-gold pl-4">Horários Disponíveis</h2>
-              <div className="grid grid-cols-3 gap-3">
-                {TIMES.map((time, index) => {
-                  const isBooked = bookedTimes.includes(time);
-                  let isNextBooked = false;
-                  
-                  // If it's a 1h service (Combo), we need to check if the NEXT slot is also free
-                  if (selectedService?.duration === '1h') {
-                    const nextTime = TIMES[index + 1];
-                    // If there's no next slot (end of day) or the next slot is booked
-                    isNextBooked = !nextTime || bookedTimes.includes(nextTime);
-                  }
-
-                  const isDisabled = isBooked || isNextBooked;
-
-                  return (
-                    <button
-                      key={time}
-                      disabled={isDisabled}
-                      onClick={() => {
-                        setSelectedTime(time);
-                        setStep(4);
-                      }}
-                      className={`p-3 glass rounded-lg text-center font-mono transition-all ${
-                        isDisabled 
-                          ? 'opacity-20 cursor-not-allowed line-through grayscale' 
-                          : 'hover:bg-gold hover:text-dark'
-                      }`}
-                    >
-                      {time}
-                    </button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step 4: Customer Info */}
-          {step === 4 && (
-            <motion.div
-              key="step4"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="space-y-6"
-            >
-              <button onClick={() => { setStep(3); setError(''); }} className="text-gold text-sm flex items-center mb-4">
-                ← Voltar ao horário
-              </button>
-              <h2 className="text-2xl font-display mb-8 border-l-4 border-gold pl-4">Seus Dados</h2>
-              
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-widest text-paper/50">Nome Completo</label>
-                  <div className="relative">
-                    <User className="absolute left-4 top-1/2 -translate-y-1/2 text-gold" size={18} />
-                    <input 
-                      type="text" 
-                      value={customerName}
-                      onChange={(e) => setCustomerName(e.target.value)}
-                      placeholder="Ex: João Silva"
-                      className="w-full pl-12 pr-4 py-4 glass rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs uppercase tracking-widest text-paper/50">WhatsApp</label>
-                  <div className="relative">
-                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-gold" size={18} />
-                    <input 
-                      type="tel" 
-                      value={customerPhone}
-                      onChange={(e) => setCustomerPhone(e.target.value)}
-                      placeholder="(00) 00000-0000"
-                      className="w-full pl-12 pr-4 py-4 glass rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="mt-8 p-4 bg-zinc-900 rounded-xl border border-white/5 space-y-2">
-                  <p className="text-xs text-paper/40 uppercase tracking-tighter">Resumo do Agendamento</p>
-                  <div className="flex justify-between">
-                    <span className="text-gold">{selectedService?.name}</span>
-                    <span className="font-mono">R$ {selectedService?.price}</span>
-                  </div>
-                  <div className="flex justify-between text-sm text-paper/60">
-                    <span>{selectedDate}</span>
-                    <span>{selectedTime}</span>
-                  </div>
-                </div>
-
-                {error && <p className="text-red-400 text-sm">{error}</p>}
-
-                <button 
-                  onClick={handleBooking}
-                  disabled={isSubmitting}
-                  className="w-full py-5 gold-gradient text-dark font-bold rounded-xl uppercase tracking-widest shadow-lg shadow-gold/20 active:scale-[0.98] transition-transform disabled:opacity-50"
-                >
-                  {isSubmitting ? 'Processando...' : 'Confirmar Agendamento'}
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Step 5: Success */}
-          {step === 5 && (
-            <motion.div
-              key="success"
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              className="text-center space-y-6 py-12"
-            >
-              <div className="flex justify-center">
-                <div className="w-24 h-24 rounded-full bg-gold/10 flex items-center justify-center text-gold">
-                  <CheckCircle2 size={64} />
-                </div>
-              </div>
-              <h2 className="text-3xl font-display text-gold">Agendado com Sucesso!</h2>
-              <p className="text-paper/60">
-                Tudo pronto, {customerName.split(' ')[0]}!<br />
-                Te esperamos dia {selectedDate.split('-').reverse().join('/')} às {selectedTime} {selectedService?.duration === '1h' ? '(Duração: 1h)' : ''}.
-              </p>
-              
-              <div className="space-y-4 pt-4">
-                <a 
-                  href={whatsappUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-3 w-full p-4 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition-all shadow-lg shadow-green-900/20"
-                >
-                  <Phone size={20} />
-                  Confirmar no WhatsApp
-                </a>
-                
-                <button 
-                  onClick={resetForm}
-                  className="w-full p-3 border border-white/10 text-paper/40 text-sm rounded-xl hover:bg-white/5 transition-all"
-                >
-                  Novo Agendamento
-                </button>
-              </div>
-            </motion.div>
-          )}
-
-          {/* Admin Dashboard */}
-          {isAdmin && (
-            <motion.div
-              key="admin"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-8"
-            >
-              <div className="flex justify-between items-center mb-8">
-                <h2 className="text-2xl font-display text-gold">Painel do Barbeiro</h2>
-                <button onClick={() => setIsAdmin(false)} className="text-paper/40 hover:text-gold">Fechar</button>
+      {/* Booking Widget */}
+      <section id="agendar" className="py-20 bg-neutral-900/30">
+        <div className="container mx-auto px-4 max-w-4xl">
+          <div className="bg-neutral-900 border border-neutral-800 rounded-3xl overflow-hidden shadow-2xl">
+            <div className="p-8 md:p-12">
+              <div className="flex items-center gap-4 mb-10">
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 1 ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-neutral-500'}`}>1</div>
+                <div className={`flex-1 h-1 rounded-full ${step >= 2 ? 'bg-amber-500' : 'bg-neutral-800'}`}></div>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 2 ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-neutral-500'}`}>2</div>
+                <div className={`flex-1 h-1 rounded-full ${step >= 3 ? 'bg-amber-500' : 'bg-neutral-800'}`}></div>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 3 ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-neutral-500'}`}>3</div>
+                <div className={`flex-1 h-1 rounded-full ${step >= 4 ? 'bg-amber-500' : 'bg-neutral-800'}`}></div>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${step >= 4 ? 'bg-amber-500 text-black' : 'bg-neutral-800 text-neutral-500'}`}>4</div>
               </div>
 
-              {!isAdminAuthenticated ? (
-                <div className="space-y-4 max-w-xs mx-auto text-center">
-                  <p className="text-sm text-paper/60">Digite a senha para acessar os agendamentos</p>
-                  <input 
-                    type="password" 
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="Senha"
-                    className="w-full px-4 py-3 glass rounded-xl focus:outline-none focus:ring-2 focus:ring-gold/50 text-center"
-                  />
-                  {error && <p className="text-red-400 text-xs">{error}</p>}
-                  <button 
-                    onClick={handleAdminLogin}
-                    className="w-full py-3 gold-gradient text-dark font-bold rounded-xl uppercase tracking-widest"
-                  >
-                    Acessar
-                  </button>
-                </div>
-              ) : (
-                <div className="space-y-6">
-                  <div className="flex justify-between items-center bg-white/5 p-4 rounded-xl border border-white/5">
-                    <div>
-                      <p className="text-[10px] text-paper/40 uppercase tracking-[0.2em]">Status da Agenda</p>
-                      <p className="text-sm font-medium text-paper/80">{appointments.length} Agendamentos</p>
-                      {lastUpdated && <p className="text-[9px] text-paper/20 uppercase mt-1">Atualizado às {lastUpdated}</p>}
-                    </div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={runDiagnostic}
-                        className="p-2 bg-white/5 text-paper/40 rounded-lg hover:text-gold transition-colors"
-                        title="Diagnóstico do Banco"
+              {step === 1 && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <h2 className="text-3xl font-bold mb-8 flex items-center gap-3">
+                    <Scissors className="text-amber-500" /> Escolha o Serviço
+                  </h2>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {services.map((service ) => (
+                      <button
+                        key={service.id}
+                        onClick={() => handleServiceSelect(service.id)}
+                        className={`p-6 rounded-2xl border text-left transition-all hover:border-amber-500 group ${selectedService === service.id ? 'border-amber-500 bg-amber-500/10' : 'border-neutral-800 bg-neutral-800/50'}`}
                       >
-                        <RefreshCw size={14} className={dbDiagnostic ? 'animate-pulse' : ''} />
-                      </button>
-                      <button 
-                        onClick={() => setFilterToday(!filterToday)}
-                        className={`px-3 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all border ${
-                          filterToday 
-                            ? 'bg-gold text-dark border-gold' 
-                            : 'bg-white/5 text-paper/40 border-white/10 hover:bg-white/10'
-                        }`}
-                      >
-                        {filterToday ? 'Hoje' : 'Todos'}
-                      </button>
-                      <button 
-                        onClick={fetchAppointments} 
-                        disabled={isSubmitting}
-                        className="flex items-center gap-2 px-4 py-2 bg-gold/10 text-gold border border-gold/20 rounded-lg hover:bg-gold/20 transition-all text-xs font-bold uppercase tracking-widest disabled:opacity-50"
-                      >
-                        <RefreshCw size={14} className={isSubmitting ? 'animate-spin' : ''} />
-                        {isSubmitting ? 'Carregando...' : 'Atualizar'}
-                      </button>
-                    </div>
-                  </div>
-
-                  {dbDiagnostic && (
-                    <div className="bg-blue-500/10 border border-blue-500/20 p-3 rounded-xl text-[10px] font-mono text-blue-300 space-y-1">
-                      <div className="flex justify-between">
-                        <span>DB Status: {dbDiagnostic.status}</span>
-                        <button onClick={() => setDbDiagnostic(null)} className="text-paper/40 hover:text-white">X</button>
-                      </div>
-                      <div>Total no Banco: {dbDiagnostic.total_appointments}</div>
-                      {dbDiagnostic.last_appointment && (
-                        <div>Último: {dbDiagnostic.last_appointment.customer_name} ({dbDiagnostic.last_appointment.time})</div>
-                      )}
-                      {dbDiagnostic.error && <div className="text-red-400">Erro: {dbDiagnostic.error}</div>}
-                    </div>
-                  )}
-                  
-                  {error && isAdminAuthenticated && (
-                    <div className="bg-red-500/10 border border-red-500/20 p-4 rounded-xl text-red-400 text-sm text-center">
-                      {error}
-                    </div>
-                  )}
-                  
-                  <div className="space-y-4">
-                    {(() => {
-                      const now = new Date();
-                      const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-                      const filtered = filterToday 
-                        ? appointments.filter(apt => apt.date === today)
-                        : appointments;
-
-                      if (filtered.length === 0) {
-                        return (
-                          <div className="text-center py-12 space-y-4">
-                            <p className="text-paper/20 italic">
-                              {filterToday ? 'Nenhum agendamento para hoje.' : 'Nenhum agendamento encontrado.'}
-                            </p>
-                            {filterToday && appointments.length > 0 && (
-                              <button onClick={() => setFilterToday(false)} className="text-gold text-xs underline">Ver todos os agendamentos</button>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      return filtered.map((apt: any) => (
-                        <div key={apt.id} className="glass p-4 rounded-xl border border-white/5 space-y-2 hover:border-gold/20 transition-colors">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="font-bold text-gold">{apt.customer_name}</h3>
-                              <p className="text-xs text-paper/60">{apt.customer_phone}</p>
-                            </div>
-                            <div className="flex flex-col items-end gap-2">
-                              <div className="text-right">
-                                <p className="text-sm font-mono text-paper/80">
-                                  {apt.date ? apt.date.split('-').reverse().join('/') : '---'}
-                                </p>
-                                <p className="text-gold font-bold text-lg">{apt.time}</p>
-                              </div>
-                              <button 
-                                onClick={() => handleCancelAppointment(apt.id)}
-                                className="p-2 text-red-400 hover:bg-red-400/10 rounded-lg transition-colors"
-                                title="Cancelar Agendamento"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </div>
-                          <div className="pt-2 border-t border-white/5 flex justify-between items-center">
-                            <span className="text-[10px] uppercase tracking-widest text-paper/30">Serviço</span>
-                            <span className="text-xs font-medium text-paper/90">{apt.service}</span>
-                          </div>
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-bold text-xl group-hover:text-amber-500">{service.name}</h3>
+                          <span className="text-amber-500 font-bold">{service.price}</span>
                         </div>
-                      ));
-                    })()}
+                        <p className="text-neutral-400 text-sm flex items-center gap-2">
+                          <Clock size={14} /> {service.duration}
+                        </p>
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </main>
 
-      {/* Footer Info */}
-      <footer className="mt-auto py-12 px-6 border-t border-white/5 bg-black/50">
-        <div className="max-w-md mx-auto grid grid-cols-1 gap-8 text-center sm:text-left">
-          <div className="space-y-4">
-            <h4 className="font-display text-gold tracking-widest uppercase text-sm">Onde Estamos</h4>
-            <div className="flex items-center justify-center sm:justify-start gap-3 text-paper/60">
-              <MapPin size={18} className="text-gold" />
-              <p className="text-sm">Rua Expedícionaro Souza Filho, 244 - Centro<br />Boituva, SP</p>
+              {step === 2 && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center gap-4 mb-8">
+                    <button onClick={() => setStep(1)} className="p-2 hover:bg-neutral-800 rounded-full transition-colors">
+                      <ChevronLeft size={24} />
+                    </button>
+                    <h2 className="text-3xl font-bold flex items-center gap-3">
+                      <Calendar className="text-amber-500" /> Selecione a Data
+                    </h2>
+                  </div>
+                  <div className="bg-neutral-800/50 p-8 rounded-2xl border border-neutral-800">
+                    <label className="block text-sm font-medium text-neutral-400 mb-2">Escolha o dia desejado:</label>
+                    <input
+                      type="date"
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={handleDateSelect}
+                      className="w-full bg-neutral-900 border border-neutral-700 rounded-xl p-4 text-white focus:outline-none focus:border-amber-500 transition-colors"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {step === 3 && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center gap-4 mb-8">
+                    <button onClick={() => setStep(2)} className="p-2 hover:bg-neutral-800 rounded-full transition-colors">
+                      <ChevronLeft size={24} />
+                    </button>
+                    <h2 className="text-3xl font-bold flex items-center gap-3">
+                      <Clock className="text-amber-500" /> Horários Disponíveis
+                    </h2>
+                  </div>
+                  <p className="mb-6 text-neutral-400">Exibindo horários para: <span className="text-white font-bold">{new Date(selectedDate).toLocaleDateString('pt-BR')}</span></p>
+                  <div className="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                    {timeSlots.map((time) => {
+                      const isOccupied = occupiedTimes.includes(time);
+                      return (
+                        <button
+                          key={time}
+                          disabled={isOccupied}
+                          onClick={() => handleTimeSelect(time)}
+                          className={`p-4 rounded-xl border text-center font-bold transition-all ${
+                            isOccupied 
+                              ? 'bg-neutral-900 border-neutral-800 text-neutral-700 cursor-not-allowed line-through' 
+                              : selectedTime === time 
+                                ? 'border-amber-500 bg-amber-500 text-black' 
+                                : 'border-neutral-800 bg-neutral-800/50 hover:border-amber-500 hover:text-amber-500'
+                          }`}
+                        >
+                          {time}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {step === 4 && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex items-center gap-4 mb-8">
+                    <button onClick={() => setStep(3)} className="p-2 hover:bg-neutral-800 rounded-full transition-colors">
+                      <ChevronLeft size={24} />
+                    </button>
+                    <h2 className="text-3xl font-bold flex items-center gap-3">
+                      <User className="text-amber-500" /> Seus Dados
+                    </h2>
+                  </div>
+                  <form onSubmit={handleSubmit} className="space-y-6">
+                    <div className="grid md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-neutral-400">Nome Completo</label>
+                        <div className="relative">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+                          <input
+                            required
+                            type="text"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Seu nome aqui"
+                            className="w-full bg-neutral-900 border border-neutral-700 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-amber-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-sm font-medium text-neutral-400">WhatsApp</label>
+                        <div className="relative">
+                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-neutral-500" size={18} />
+                          <input
+                            required
+                            type="tel"
+                            value={phone}
+                            onChange={(e) => setPhone(e.target.value)}
+                            placeholder="(00) 00000-0000"
+                            className="w-full bg-neutral-900 border border-neutral-700 rounded-xl py-4 pl-12 pr-4 text-white focus:outline-none focus:border-amber-500 transition-colors"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {error && (
+                      <div className="p-4 bg-red-500/10 border border-red-500/50 rounded-xl flex items-center gap-3 text-red-500">
+                        <AlertCircle size={20} /> {error}
+                      </div>
+                    )}
+
+                    <div className="bg-neutral-800/30 p-6 rounded-2xl border border-neutral-800 space-y-3">
+                      <h3 className="font-bold text-lg mb-2">Resumo do Agendamento:</h3>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>Serviço:</span>
+                        <span className="text-white">{services.find(s => s.id === selectedService)?.name}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>Data:</span>
+                        <span className="text-white">{new Date(selectedDate).toLocaleDateString('pt-BR')}</span>
+                      </div>
+                      <div className="flex justify-between text-neutral-400">
+                        <span>Horário:</span>
+                        <span className="text-white">{selectedTime}</span>
+                      </div>
+                      <div className="pt-3 border-t border-neutral-700 flex justify-between font-bold text-xl">
+                        <span>Total:</span>
+                        <span className="text-amber-500">{services.find(s => s.id === selectedService)?.price}</span>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="w-full bg-amber-600 hover:bg-amber-700 disabled:bg-neutral-700 text-white py-5 rounded-2xl text-xl font-black transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-xl shadow-amber-900/20 flex items-center justify-center gap-3"
+                    >
+                      {isSubmitting ? 'Agendando...' : 'Confirmar e Finalizar'} <ChevronRight size={24} />
+                    </button>
+                  </form>
+                </div>
+              )}
+
+              {step === 5 && (
+                <div className="text-center py-10 animate-in zoom-in duration-500">
+                  <div className="flex justify-center mb-6">
+                    <div className="w-24 h-24 bg-green-500/20 rounded-full flex items-center justify-center text-green-500">
+                      <CheckCircle2 size={64} />
+                    </div>
+                  </div>
+                  <h2 className="text-4xl font-black mb-4">Agendamento Solicitado!</h2>
+                  <p className="text-neutral-400 text-lg mb-8 max-w-md mx-auto">
+                    Parabéns, {name.split(' ')[0]}! Seu horário foi reservado. Você será redirecionado para o nosso WhatsApp para confirmar os detalhes.
+                  </p>
+                  <button
+                    onClick={() => window.location.reload()}
+                    className="bg-neutral-800 hover:bg-neutral-700 text-white px-8 py-4 rounded-xl font-bold transition-all"
+                  >
+                    Fazer outro agendamento
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-          
-          <div className="space-y-4">
-            <h4 className="font-display text-gold tracking-widest uppercase text-sm">Contato</h4>
-            <div className="flex items-center justify-center sm:justify-start gap-3 text-paper/60">
-              <Phone size={18} className="text-gold" />
-              <a href="https://wa.me/5515997278405" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-gold transition-colors">
-                (15) 99727-8405
+        </div>
+      </section>
+
+      {/* Info Section */}
+      <section className="py-20 border-t border-neutral-900">
+        <div className="container mx-auto px-4">
+          <div className="grid md:grid-cols-3 gap-12 text-center">
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
+                  <MapPin size={32} />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold">Localização</h3>
+              <p className="text-neutral-400">Rua Exemplo, 123 - Centro  
+Boituva, SP</p>
+              <a href="#" className="text-amber-500 font-bold inline-flex items-center gap-1 hover:underline">
+                Ver no Mapa <ExternalLink size={14} />
               </a>
             </div>
-          </div>
-          
-          <div className="space-y-4">
-            <h4 className="font-display text-gold tracking-widest uppercase text-sm">Siga-nos</h4>
-            <div className="flex justify-center sm:justify-start gap-6">
-              <a href="https://www.instagram.com/barbearia.macchine/" target="_blank" rel="noopener noreferrer" className="text-paper/40 hover:text-gold transition-colors"><Instagram size={24} /></a>
-              <a href="https://www.facebook.com/barbeariamacchine" target="_blank" rel="noopener noreferrer" className="text-paper/40 hover:text-gold transition-colors"><Facebook size={24} /></a>
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
+                  <Clock size={32} />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold">Horários</h3>
+              <p className="text-neutral-400">Terça a Sexta: 09h às 19h  
+Sábado: 08h às 18h</p>
+            </div>
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <div className="w-16 h-16 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-500">
+                  <Phone size={32} />
+                </div>
+              </div>
+              <h3 className="text-2xl font-bold">Contato</h3>
+              <p className="text-neutral-400">(15) 99745-5431</p>
+              <div className="flex justify-center gap-4">
+                <a href="#" className="text-neutral-400 hover:text-amber-500 transition-colors"><Instagram size={24} /></a>
+                <a href="#" className="text-neutral-400 hover:text-amber-500 transition-colors"><Facebook size={24} /></a>
+              </div>
             </div>
           </div>
+        </div>
+      </section>
 
-          <p className="text-[10px] text-paper/20 uppercase tracking-[0.2em] pt-8">
-            © 2026 Barbearia Macchine. Todos os direitos reservados.
-          </p>
-          <button 
-            onClick={() => { setIsAdmin(true); setError(''); }} 
-            className="text-[10px] text-paper/10 hover:text-gold/30 transition-colors uppercase tracking-[0.2em] mt-2"
-          >
-            Acesso Restrito
-          </button>
+      {/* Footer */}
+      <footer className="py-10 bg-black border-t border-neutral-900 text-center text-neutral-500 text-sm">
+        <div className="container mx-auto px-4">
+          <p>© 2024 Barbearia Macchine. Todos os direitos reservados.</p>
+          <p className="mt-2">Desenvolvido para oferecer a melhor experiência em Boituva.</p>
         </div>
       </footer>
     </div>
   );
 }
+
+export default App;
